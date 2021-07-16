@@ -14,6 +14,9 @@ class ReDiveArenaHelper:
         self.border_fix = 2
 
         self.princess_arena_check = cv2.imread("./assets/princess_arena.png", cv2.IMREAD_GRAYSCALE)
+        self.arena_refresh = cv2.imread("./assets/refresh.png", cv2.IMREAD_GRAYSCALE)
+        self.find_max_scroll = 40
+        self.unit_match_threshold = 0.7
         self.fps = 100000
 
     def run(self):
@@ -77,7 +80,7 @@ class ReDiveArenaHelper:
         print("=" * 35)
         for i in range(len(target_data)):
             print(f"Target {i+1}:", [j[2].get("name_tw", j[2]["name_jp"]) for j in target_data[i][0]])
-        print("=" * 35 + "\nPlease Select Target: ")
+        print("=" * 35 + "\nPlease select the target or press 'r' to refresh...")
 
         key = cv2.waitKey(120000)
         if key == ord("1"):
@@ -86,12 +89,24 @@ class ReDiveArenaHelper:
             target_id = 1
         elif key == ord("3"):
             target_id = 2
+        elif key == ord("r"):
+            res = cv2.matchTemplate(self.arena_refresh, gray, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            top_left = max_loc
+            self.wc.click(top_left[0] + 5, top_left[1] + 5)
+            cv2.waitKey(2000)
+            print("\n" * 5)
+            return
         else:
+            print("\n" * 5)
             return
         print("Target", target_id + 1, "selected.")
 
-        self.fetch_group(target_data[target_id])
+        atk_units = self.fetch_group(target_data[target_id])
         self.wc.click(*target_box_images[target_id]["click"])
+        if atk_units:
+            cv2.waitKey(1000)
+            self.auto_select_team(gray, atk_units)
 
         print("Press any key after you finish the battle.")
         cv2.waitKey(0)
@@ -136,17 +151,53 @@ class ReDiveArenaHelper:
         else:
             best_ans_def = [self.um.find_id(i)[1].get("name_tw") for i in best_ans["def"]]
             best_ans_atk = [self.um.find_id(i)[1].get("name_tw") for i in best_ans["atk"]]
-            best_ans_atk_ids = [self.um.find_id(i)[0] for i in best_ans["atk"]]
+            best_ans_atk_units = [self.um.find_id(i) for i in best_ans["atk"]]
             print("Defense :", best_ans_def)
             print("Attack  :", best_ans_atk)
             print("Good/Bad:", best_ans["good"], best_ans["bad"])
             print("Updated :", best_ans["updated"])
-            atk_units = self.um.unit_assets[best_ans_atk_ids[0] * 100 + 31]
-            for i in range(1, len(best_ans_atk_ids)):
-                atk_units = cv2.hconcat([atk_units, self.um.unit_assets[best_ans_atk_ids[i] * 100 + 31]])
+            # atk_units = self.um.unit_assets[best_ans_atk_ids[0] * 100 + 31]
+            # for i in range(1, len(best_ans_atk_ids)):
+            #     atk_units = cv2.hconcat([atk_units, self.um.unit_assets[best_ans_atk_ids[i] * 100 + 31]])
 
-            cv2.imshow("ANS", atk_units)
+            # cv2.imshow("ANS", atk_units)
+            return best_ans_atk_units
         print("=" * 35)
+
+    def auto_select_team(self, gray: np.ndarray, units: list):
+        height, width = gray.shape
+        for i in range(5):  # clean current team
+            self.wc.click(int(width * 0.55), int(height * 0.85))
+            cv2.waitKey(200)
+
+        c = 0
+        while len(units) > 0 and c < self.find_max_scroll:
+            cap, gray = self.wc.get()
+            # cv2.imshow("cap", cap)
+            for unit_id, data in units:  # [i,j] = unit_id, {"raritys": [0], "name_tw": "Unknown", "name_jp": "Unknown"}
+                for rarity in data["raritys"]:
+                    unit_gray = self.um.unit_assets[unit_id * 100 + rarity * 10 + 1]
+                    unit_gray = cv2.resize(unit_gray[10:54, 10:54], (int(height * 0.12), int(height * 0.12)))
+                    # cv2.imshow("unit_gray", unit_gray)
+                    res = cv2.matchTemplate(unit_gray, gray, cv2.TM_CCOEFF_NORMED)
+                    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+                    top_left = max_loc
+                    # bottom_right = (top_left[0] + 44, top_left[1] + 44)
+                    # ts = np.copy(gray)
+                    # cv2.rectangle(ts, top_left, bottom_right, (0, 0, 255), 2)
+                    # cv2.imshow("ts", ts)
+
+                    if max_val > self.unit_match_threshold:
+                        print(data["name_tw"], rarity, max_val)
+                        top_left = max_loc
+                        self.wc.click(top_left[0] + 10, top_left[1] + 10)
+                        cv2.waitKey(300)
+                        units.remove((unit_id, data))
+                        break
+            c += 1
+            if c % 2 == 0:
+                self.wc.scroll(int(width / 2), int(height / 2), -int(height / 7.5))
+            cv2.waitKey(1000)
 
 
 app = ReDiveArenaHelper("ASUS_Z01RD")

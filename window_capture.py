@@ -1,4 +1,3 @@
-from time import sleep
 import cv2
 import win32gui
 import win32ui
@@ -10,9 +9,9 @@ from PIL import Image
 import numpy as np
 from pynput.keyboard import Controller
 
+
 class WindowNotFound(Exception):
     pass
-
 
 
 class WindowCapture:
@@ -72,6 +71,7 @@ class WindowCapture:
         win32gui.SetActiveWindow(self.hwnd)
         left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
         win32api.SetCursorPos((left + 8 + x, top + 31 + y))
+        cv2.waitKey(200)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
 
@@ -90,3 +90,15 @@ class WindowCapture:
         win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
         win32api.keybd_event(86, 0, win32con.KEYEVENTF_KEYUP, 0)
         win32clipboard.CloseClipboard()
+
+    def scroll(self, center_x: int, center_y: int, height: int):
+        win32gui.SetForegroundWindow(self.hwnd)
+        win32gui.SetActiveWindow(self.hwnd)
+        left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
+        win32api.SetCursorPos((left + 8 + center_x, top + 31 + center_y))
+        cv2.waitKey(200)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
+        cv2.waitKey(1000)
+        win32api.SetCursorPos((left + 8 + center_x, top + 31 + center_y + height))
+        cv2.waitKey(200)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
