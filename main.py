@@ -1,14 +1,18 @@
-from window_capture import WindowCapture
+from window_capture import WindowCapture, WindowNotFound
 from unit_match import UnitMatch
 from api import Api
 import cv2
-from PIL import ImageFont, ImageDraw, Image
 import numpy as np
+import win32gui
 
 
 class ReDiveArenaHelper:
     def __init__(self, window_title: str):
-        self.wc = WindowCapture(window_title)
+        hwnd = win32gui.FindWindow(None, window_title)
+        if not hwnd:
+            raise WindowNotFound
+
+        self.wc = WindowCapture(hwnd)
         self.um = UnitMatch("./assets")
         self.api = Api()
         self.border_fix = 2

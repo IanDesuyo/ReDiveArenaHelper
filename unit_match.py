@@ -85,12 +85,10 @@ class UnitMatch:
 
         map = np.copy(self.template_map)
         cv2.rectangle(map, top_left, bottom_right, (0, 0, 255), 2)
-        # cv2.imshow("image", image)
-        # cv2.imshow("map", map)
         return unit_id, rarity, unit_data
 
     def find_id(self, name: str):
         for i, j in self.units.items():
             if j.get("name_tw") == name or j["name_jp"] == name:
-                return i, j
+                return {"unit_id": i, "data": j}
         return {}

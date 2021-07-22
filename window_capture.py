@@ -2,6 +2,7 @@ import cv2
 import win32gui
 import win32ui
 import win32con
+import win32com.client
 import win32api
 import win32clipboard
 from ctypes import windll
@@ -15,12 +16,12 @@ class WindowNotFound(Exception):
 
 
 class WindowCapture:
-    def __init__(self, window_title: str):
-        self.hwnd = win32gui.FindWindow(None, window_title)
-        if not self.hwnd:
+    def __init__(self, hwnd: str):
+        try:
+            self.hwnd = int(hwnd, 16)
+            self.hwndDC = win32gui.GetWindowDC(self.hwnd)
+        except:
             raise WindowNotFound
-
-        self.hwndDC = win32gui.GetWindowDC(self.hwnd)
         self.mfcDC = win32ui.CreateDCFromHandle(self.hwndDC)
         self.saveDC = self.mfcDC.CreateCompatibleDC()
         self.saveBitMap = win32ui.CreateBitmap()
@@ -61,17 +62,22 @@ class WindowCapture:
         return crop, crop_gray
 
     def exit(self):
-        win32gui.DeleteObject(self.saveBitMap.GetHandle())
-        self.saveDC.DeleteDC()
-        self.mfcDC.DeleteDC()
-        win32gui.ReleaseDC(self.hwnd, self.hwndDC)
+        try:
+            win32gui.DeleteObject(self.saveBitMap.GetHandle())
+            self.saveDC.DeleteDC()
+            self.mfcDC.DeleteDC()
+            win32gui.ReleaseDC(self.hwnd, self.hwndDC)
+        except:
+            pass
 
     def click(self, x: int, y: int):
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shell.SendKeys('%')
         win32gui.SetForegroundWindow(self.hwnd)
         win32gui.SetActiveWindow(self.hwnd)
         left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
         win32api.SetCursorPos((left + 8 + x, top + 31 + y))
-        cv2.waitKey(200)
+        cv2.waitKey(100)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
 
@@ -96,9 +102,9 @@ class WindowCapture:
         win32gui.SetActiveWindow(self.hwnd)
         left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
         win32api.SetCursorPos((left + 8 + center_x, top + 31 + center_y))
-        cv2.waitKey(200)
+        cv2.waitKey(100)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
-        cv2.waitKey(1000)
+        cv2.waitKey(300)
         win32api.SetCursorPos((left + 8 + center_x, top + 31 + center_y + height))
-        cv2.waitKey(200)
+        cv2.waitKey(100)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
