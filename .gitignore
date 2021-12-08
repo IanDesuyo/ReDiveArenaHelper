@@ -1,5 +1,7 @@
 __pycache__
 .env
 .vscode
+assets/version.json
 assets/*.db
 assets/character_unit
+chromedriver.exe

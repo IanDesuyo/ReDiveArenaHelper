@@ -54,9 +54,9 @@ export default function GameView(props) {
   }
 
   async function doAttack(i) {
-    let click = data.targets[i][0].click;
-    let atk_units = isRunning.autoTeam ? ans[i].attack : null;
-    let resp = await window.eel.do_attack(click, atk_units);
+    let click = data.targets[i].click;
+    let units = isRunning.autoTeam ? ans[i].units : null;
+    let resp = await window.eel.do_attack(click, units);
     if (!resp.error) {
       console.log("Good Luck");
     } else {
@@ -104,9 +104,9 @@ export default function GameView(props) {
                       <Typography variant="body1" gutterBottom>
                         防禦隊伍
                       </Typography>
-                      {target.map((unit, j) => (
+                      {target.units.map((unit, j) => (
                         <Typography key={j} variant="body1">
-                          {unit.data.name_tw || unit.data.name_jp} ({unit.rarity}星)
+                          {unit.name_tw || unit.name_jp} ({unit.rarity}星)
                         </Typography>
                       ))}
                     </Grid>
@@ -116,9 +116,9 @@ export default function GameView(props) {
                           <Typography variant="body1" gutterBottom>
                             攻擊隊伍 ({ans[i].good}/{ans[i].bad})
                           </Typography>
-                          {ans[i].attack.map((unit, j) => (
+                          {ans[i].units.map((unit, j) => (
                             <Typography key={j} variant="body1">
-                              {unit.data.name_tw || unit.data.name_jp}
+                              {unit.name_tw || unit.name_jp}
                             </Typography>
                           ))}
                         </>

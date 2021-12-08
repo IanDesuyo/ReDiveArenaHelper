@@ -1,20 +1,35 @@
+import logging
+import os
+from typing import List, NamedTuple, Tuple
 import eel
 import cv2
 import numpy as np
 import base64
+from update import update
 from window_capture import WindowCapture, WindowNotFound
-from unit_match import UnitMatch
+from unit_match import Unit, UnitMatch
 from api import Api
 import win32gui
 
 
+class TargetData(NamedTuple):
+    units: List[Unit]
+    click: Tuple[int, int]
+
+    def as_dict(self):
+        return {"click": self.click, "units": [unit.as_dict() for unit in self.units]}
+
+
 class GUI:
-    def __init__(self):
+    def __init__(self, asset_path="./assets", auto_update=False):
+        self.logger = logging.getLogger("Main")
+        if auto_update:
+            update(asset_path)
         self.wc: WindowCapture = None
-        self.um = UnitMatch("./assets")
-        self.api = Api()
+        self.um = UnitMatch(asset_path)
+        self.api = Api(self.um)
         self.cache_gray: np.ndarray = None
-        self.arena_refresh = cv2.imread("./assets/refresh.png", cv2.IMREAD_GRAYSCALE)
+        self.arena_refresh = cv2.imread(os.path.join(asset_path, "/refresh.png"), cv2.IMREAD_GRAYSCALE)
         eel.init("./web/build")
         # load all unregistered exposes
         self._set_window()
@@ -51,12 +66,14 @@ class GUI:
 
             try:
                 self.wc = WindowCapture(hwnd)
+                self.logger.info(f"Window has been set to {hwnd}.")
                 return {"error": False, "message": "Sucess"}
 
             except WindowNotFound:
                 return {"error": True, "message": "Window not found"}
 
             except Exception as e:
+                self.logger.exception(e)
                 return {"error": True, "message": str(e)}
 
     def _get_game_view(self):
@@ -70,40 +87,32 @@ class GUI:
                     targets = []
                 _, buffer = cv2.imencode(".png", cap)
                 b64 = base64.b64encode(buffer).decode("utf-8")
-                return {"error": False, "image": b64, "targets": targets}
+                return {"error": False, "image": b64, "targets": [target.as_dict() for target in targets]}
             except Exception as e:
                 return {"error": True, "message": str(e)}
 
     def _get_attack_team(self):
         @eel.expose
-        def get_attack_team(def_units: list):
-            print("GET_ATTACK_TEAM")
-            ans = self.api.search([i["data"]["name_jp"] for i in def_units])
+        def get_attack_team(data: dict):
+            def_units = [Unit(**i) for i in data.get("units")]
+            ans = self.api.search(def_units)
 
             if not ans:
-                return {"error": False, "attack": [], "defense": def_units, "good": 0, "bad": 0, "updated": ""}
+                return {"error": False, "units": [], "good": 0, "bad": 0}
             else:
-                ans_def = [self.um.find_id(i) for i in ans["def"]]
-                best_ans_atk = [self.um.find_id(i) for i in ans["atk"]]
-                return {
-                    "error": False,
-                    "attack": best_ans_atk,
-                    "defense": ans_def,
-                    "good": ans["good"],
-                    "bad": ans["bad"],
-                    "updated": ans["updated"],
-                }
+                return {"error": False, **ans.as_dict()}
 
     def _do_attack(self):
         @eel.expose
-        def do_attack(click: tuple, atk_units: list = None):
+        def do_attack(click: tuple, units: list = None):
+            units = [Unit(**i) for i in units]
             _, gray = self.wc.get()
             self.wc.click(*click)
-            if atk_units:
+            if units:
                 cv2.waitKey(500)
-                self.auto_team(gray, atk_units)
+                self.auto_team(gray, units)
 
-    def parse_arena(self, cap: np.ndarray, gray: np.ndarray):
+    def parse_arena(self, cap: np.ndarray, gray: np.ndarray) -> Tuple[np.ndarray, List[TargetData]]:
         height, width = gray.shape
         blur = cv2.GaussianBlur(gray, (11, 11), 0)
         edge = cv2.Canny(blur, 40, 120)
@@ -132,12 +141,12 @@ class GUI:
 
         target_data = []
         for target_box_image in target_box_images:
-            res = self.parse_units(**target_box_image)
-            target_data.append(res)
+            units = self.parse_units(target_box_image["gray"])
+            target_data.append(TargetData(units=units, click=target_box_image["click"]))
 
         return cap, target_data
 
-    def parse_units(self, gray: np.ndarray, click: tuple):
+    def parse_units(self, gray: np.ndarray) -> List[Unit]:
         height, width = gray.shape
         _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -155,12 +164,12 @@ class GUI:
         unit_boxes, _ = cv2.groupRectangles(unit_boxes, 1, 0.2)
         units = []
         for (x, y, w, h) in unit_boxes:
-            unit_id, rarity, unit_data = self.um.match(gray[y : y + h, x : x + w])
-            units.append({"unit_id": int(unit_id), "rarity": rarity, "data": unit_data, "click": click})
+            unit = self.um.match(gray[y : y + h, x : x + w])
+            units.append(unit)
 
         return units
 
-    def auto_team(self, gray: np.ndarray, units: list):
+    def auto_team(self, gray: np.ndarray, units: List[Unit]):
         height, width = gray.shape
         for i in range(5):  # clean current team
             self.wc.click(int(width * 0.55), int(height * 0.85))
@@ -171,10 +180,9 @@ class GUI:
         c = 0
         while len(units) > 0 and c < self.find_max_scroll:
             cap, gray = self.wc.get()
-            # cv2.imshow("cap", cap)
-            for unit in units:  # [i,j] = unit_id, {"raritys": [0], "name_tw": "Unknown", "name_jp": "Unknown"}
-                for rarity in unit["data"]["raritys"]:
-                    unit_gray = self.um.unit_assets[unit["unit_id"] * 100 + rarity * 10 + 1]
+            for unit in units:
+                for rarity in unit.raritys:
+                    unit_gray = self.um.unit_assets[unit.unit_id * 100 + rarity * 10 + 1]
                     unit_gray = cv2.resize(unit_gray[10:54, 10:54], (int(height * 0.12), int(height * 0.12)))
                     # cv2.imshow("unit_gray", unit_gray)
                     res = cv2.matchTemplate(unit_gray, gray, cv2.TM_CCOEFF_NORMED)
@@ -186,7 +194,7 @@ class GUI:
                     # cv2.imshow("ts", ts)
 
                     if max_val > self.unit_match_threshold:
-                        print(unit["data"]["name_tw"], rarity, max_val)
+                        self.logger.info(f"{unit}({max_val:.3f}) selected.")
                         top_left = max_loc
                         self.wc.click(top_left[0] + 10, top_left[1] + 10)
                         cv2.waitKey(300)
@@ -198,5 +206,10 @@ class GUI:
             cv2.waitKey(1000)
 
 
-app = GUI()
-app.run()
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="[%(levelname)s][%(asctime)s][%(name)s] %(message)s", datefmt="%Y/%m/%d %H:%M:%S"
+    )
+
+    app = GUI()
+    app.run()
