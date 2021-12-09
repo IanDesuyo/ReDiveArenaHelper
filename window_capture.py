@@ -8,7 +8,6 @@ import win32clipboard
 from ctypes import windll
 from PIL import Image
 import numpy as np
-from pynput.keyboard import Controller
 
 
 class WindowNotFound(Exception):
@@ -25,7 +24,6 @@ class WindowCapture:
         self.mfcDC = win32ui.CreateDCFromHandle(self.hwndDC)
         self.saveDC = self.mfcDC.CreateCompatibleDC()
         self.saveBitMap = win32ui.CreateBitmap()
-        self.keyboard = Controller()
 
     def get(self):
         try:
@@ -72,7 +70,7 @@ class WindowCapture:
 
     def click(self, x: int, y: int):
         shell = win32com.client.Dispatch("WScript.Shell")
-        shell.SendKeys('%')
+        shell.SendKeys("%")
         win32gui.SetForegroundWindow(self.hwnd)
         win32gui.SetActiveWindow(self.hwnd)
         left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
@@ -87,7 +85,6 @@ class WindowCapture:
         return x - left - 8, y - top - 31
 
     def type_text(self, text: str):
-        # self.keyboard.type(text)
         win32clipboard.OpenClipboard()
         win32clipboard.EmptyClipboard()
         win32clipboard.SetClipboardText(text, win32clipboard.CF_UNICODETEXT)

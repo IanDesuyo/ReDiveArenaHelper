@@ -4,8 +4,6 @@ from seleniumwire.webdriver import Chrome, ChromeOptions
 from typing import Dict, List, NamedTuple
 from unit_match import Unit, UnitMatch
 import json
-from seleniumwire.server import logger as server_logger
-from seleniumwire.handler import log as handler_logger
 
 for logger in [
     "geventwebsocket.handler",
@@ -86,7 +84,7 @@ class Api:
                 for i in best_result["atk"]:
                     units.append(deepcopy(self.um.units[int(i["id"] / 100)])._replace(rarity=i["star"]))
 
-                self.logger.info(f"{', '.join([unit for unit in units])} {good}/{bad}")
+                self.logger.info(f"{', '.join([str(unit) for unit in units])} {good}/{bad}")
                 return AttackData(good=good, bad=bad, units=units)
 
         self.logger.info(f"Attack team not found :(")
