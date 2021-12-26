@@ -73,3 +73,11 @@ def update(path: str):
 
         os.remove(os.path.join(path, "units_cache.npy"))
         logger.info(f"units_cache.npy deleted.")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="[%(levelname)s][%(asctime)s][%(name)s] %(message)s", datefmt="%Y/%m/%d %H:%M:%S"
+    )
+
+    update("./assets")
