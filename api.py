@@ -25,12 +25,14 @@ class AttackData(NamedTuple):
 
 
 class Api:
-    def __init__(self, um: UnitMatch):
+    def __init__(self, um: UnitMatch, headless=True):
         self.logger = logging.getLogger("API")
         self.logger.info("Initializing...")
         self.um = um
         options = ChromeOptions()
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        if headless:
+            options.add_argument("--headless")
         self.driver = Chrome(options=options)
 
         self.driver.get("https://www.pcrdfans.com/battle")

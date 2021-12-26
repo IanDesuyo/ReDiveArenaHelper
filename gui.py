@@ -89,6 +89,7 @@ class GUI:
                 b64 = base64.b64encode(buffer).decode("utf-8")
                 return {"error": False, "image": b64, "targets": [target.as_dict() for target in targets]}
             except Exception as e:
+                self.logger.exception(e)
                 return {"error": True, "message": str(e)}
 
     def _get_attack_team(self):
@@ -148,7 +149,7 @@ class GUI:
 
     def parse_units(self, gray: np.ndarray) -> List[Unit]:
         height, width = gray.shape
-        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+        _, thresh = cv2.threshold(gray[5:, 5:], 200, 255, cv2.THRESH_BINARY_INV)  # fix border
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         unit_boxes = []
         for contour in contours:
@@ -171,9 +172,10 @@ class GUI:
 
     def auto_team(self, gray: np.ndarray, units: List[Unit]):
         height, width = gray.shape
-        for i in range(5):  # clean current team
+        for i in range(8):  # clean current team
+            print("click at ", int(width * 0.55), int(height * 0.85))
             self.wc.click(int(width * 0.55), int(height * 0.85))
-            cv2.waitKey(200)
+            cv2.waitKey(300)
 
         cv2.waitKey(500)
 
@@ -184,21 +186,17 @@ class GUI:
                 for rarity in unit.raritys:
                     unit_gray = self.um.unit_assets[unit.unit_id * 100 + rarity * 10 + 1]
                     unit_gray = cv2.resize(unit_gray[10:54, 10:54], (int(height * 0.12), int(height * 0.12)))
-                    # cv2.imshow("unit_gray", unit_gray)
+
                     res = cv2.matchTemplate(unit_gray, gray, cv2.TM_CCOEFF_NORMED)
                     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
                     top_left = max_loc
-                    # bottom_right = (top_left[0] + 44, top_left[1] + 44)
-                    # ts = np.copy(gray)
-                    # cv2.rectangle(ts, top_left, bottom_right, (0, 0, 255), 2)
-                    # cv2.imshow("ts", ts)
 
                     if max_val > self.unit_match_threshold:
-                        self.logger.info(f"{unit}({max_val:.3f}) selected.")
                         top_left = max_loc
-                        self.wc.click(top_left[0] + 10, top_left[1] + 10)
+                        self.wc.click(top_left[0] + 20, top_left[1] + 20)
                         cv2.waitKey(300)
                         units.remove(unit)
+                        self.logger.info(f"{unit}({max_val:.3f}) selected.")
                         break
             c += 1
             if c % 2 == 0:

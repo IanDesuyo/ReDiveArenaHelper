@@ -25,22 +25,23 @@ class WindowCapture:
         self.saveDC = self.mfcDC.CreateCompatibleDC()
         self.saveBitMap = win32ui.CreateBitmap()
 
+    def get_rect(self):
+        left, top, right, bottom = win32gui.GetWindowRect(self.hwnd)
+        return left, top, right, bottom
+
     def get(self):
         try:
-            left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
+            left, top, right, bottom = self.get_rect()
         except:
             raise WindowNotFound
 
         w = right - left
-        h = bot - top
-        self.saveBitMap.CreateCompatibleBitmap(self.mfcDC, w, h)
+        h = bottom - top
+        self.saveBitMap.CreateCompatibleBitmap(self.mfcDC, 1920, 1080)
 
         self.saveDC.SelectObject(self.saveBitMap)
 
-        # Change the line below depending on whether you want the whole window
-        # or just the client area.
-        windll.user32.PrintWindow(self.hwnd, self.saveDC.GetSafeHdc(), 1)
-        # windll.user32.PrintWindow(self.hwnd, self.saveDC.GetSafeHdc(), 0)
+        windll.user32.PrintWindow(self.hwnd, self.saveDC.GetSafeHdc(), 2)
 
         bmpinfo = self.saveBitMap.GetInfo()
         bmpstr = self.saveBitMap.GetBitmapBits(True)
@@ -73,7 +74,7 @@ class WindowCapture:
         shell.SendKeys("%")
         win32gui.SetForegroundWindow(self.hwnd)
         win32gui.SetActiveWindow(self.hwnd)
-        left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
+        left, top, _, _ = self.get_rect()
         win32api.SetCursorPos((left + 8 + x, top + 31 + y))
         cv2.waitKey(100)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
@@ -81,7 +82,7 @@ class WindowCapture:
 
     def get_current_pos(self):
         x, y = win32gui.GetCursorPos()
-        left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
+        left, top, _, _ = self.get_rect()
         return x - left - 8, y - top - 31
 
     def type_text(self, text: str):
@@ -97,7 +98,7 @@ class WindowCapture:
     def scroll(self, center_x: int, center_y: int, height: int):
         win32gui.SetForegroundWindow(self.hwnd)
         win32gui.SetActiveWindow(self.hwnd)
-        left, top, right, bot = win32gui.GetWindowRect(self.hwnd)
+        left, top, _, _ = self.get_rect()
         win32api.SetCursorPos((left + 8 + center_x, top + 31 + center_y))
         cv2.waitKey(100)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
