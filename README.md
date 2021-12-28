@@ -14,6 +14,7 @@
 
 - [Node.js](https://nodejs.org)
 - [Python3](https://www.python.org)
+- [ChromeDriver](https://chromedriver.chromium.org) 放置於根目錄內
 
 ### Installation
 

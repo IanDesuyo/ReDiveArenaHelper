@@ -71,8 +71,9 @@ def update(path: str):
 
             logger.info(f"{image} downloaded.")
 
-        os.remove(os.path.join(path, "units_cache.npy"))
-        logger.info(f"units_cache.npy deleted.")
+        if os.path.exists(os.path.join(path, "units_cache.npy")):
+            os.remove(os.path.join(path, "units_cache.npy"))
+            logger.info(f"units_cache.npy deleted.")
 
 
 if __name__ == "__main__":
